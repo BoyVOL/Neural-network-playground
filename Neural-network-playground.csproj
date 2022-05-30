@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Godot.NET.Sdk/3.3.0">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <RootNamespace>Neuralnetworkplayground</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="NeuralNetwork\MLBase.cs" />
+    <Content Include="Node2D.cs" />
+  </ItemGroup>
+</Project>

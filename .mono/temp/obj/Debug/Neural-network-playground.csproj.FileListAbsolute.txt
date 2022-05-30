@@ -1,0 +1,9 @@
+C:\Users\limonovvo\Documents\GitHub\Neural-network-playground\.mono\temp\bin\Debug\Neural-network-playground.dll
+C:\Users\limonovvo\Documents\GitHub\Neural-network-playground\.mono\temp\bin\Debug\Neural-network-playground.pdb
+C:\Users\limonovvo\Documents\GitHub\Neural-network-playground\.mono\temp\obj\Debug\Neural-network-playground.csproj.AssemblyReference.cache
+C:\Users\limonovvo\Documents\GitHub\Neural-network-playground\.mono\temp\obj\Debug\Neural-network-playground.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\limonovvo\Documents\GitHub\Neural-network-playground\.mono\temp\obj\Debug\Neural-network-playground.AssemblyInfoInputs.cache
+C:\Users\limonovvo\Documents\GitHub\Neural-network-playground\.mono\temp\obj\Debug\Neural-network-playground.AssemblyInfo.cs
+C:\Users\limonovvo\Documents\GitHub\Neural-network-playground\.mono\temp\obj\Debug\Neural-network-playground.csproj.CoreCompileInputs.cache
+C:\Users\limonovvo\Documents\GitHub\Neural-network-playground\.mono\temp\obj\Debug\Neural-network-playground.dll
+C:\Users\limonovvo\Documents\GitHub\Neural-network-playground\.mono\temp\obj\Debug\Neural-network-playground.pdb
