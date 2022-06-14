@@ -1,12 +1,45 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 namespace DeepLearning
 {
     /// <summary>
-    /// базовый класс, представляющий один слой нейросети
+    /// Абстрактный класс активационных функций для использования в построении нейросетей
     /// </summary>
-    public class NNLayer{
+    public abstract class ActivationFunct{
+
+        /// <summary>
+        /// Вычисление результата функции активации по входному значению
+        /// </summary>
+        /// <param name="x">входное значение</param>
+        /// <returns></returns>
+        public abstract float ActivationVal(float x);
+
+        /// <summary>
+        /// Вычисление производной функции активации по входному значению
+        /// </summary>
+        /// <param name="x">входное значение</param>
+        /// <returns></returns>
+        public abstract float ActivationDeriv(float x);
+    }
+
+    public class SigmoidFunct: ActivationFunct{
+        public override float ActivationVal(float x)
+        {
+            return (float)(1/(1+Math.Exp(-x)));
+        }
+
+        public override float ActivationDeriv(float x)
+        {
+            return ActivationVal(x)*(1-ActivationVal(x));
+        }
+    }
+
+    /// <summary>
+    /// Абстрактный базовый класс для всех нейронных слоёв
+    /// </summary>
+    public abstract class NNLayer{
 
         /// <summary>
         /// Веса связей между нейронами предыдущего и данного слоя.
@@ -14,12 +47,7 @@ namespace DeepLearning
         protected float[,] Weights;
 
         /// <summary>
-        /// массив, хранящий предыдущие исправления весов
-        /// </summary>
-        protected float[,] PrevCorr;
-
-        /// <summary>
-        /// Буфер для выхода нейронного слоя
+        /// Буфер для выхода нейрона до использования функции активации
         /// </summary>
         protected float[] Output;
 
@@ -29,46 +57,10 @@ namespace DeepLearning
         protected float[] Input;
 
         /// <summary>
-        /// Буффер ошибок нейронного слоя
+        /// Свойство, хранящее функцию активации
         /// </summary>
-        protected float[] Error;
-
-        /// <summary>
-        /// Инициализация слоя
-        /// </summary>
-        /// <param name="inputSize">Количество входов</param>
-        /// <param name="outputSize">Количество выходов</param>
-        public NNLayer(int inputSize, int outputSize, Random rand = null){
-            Weights = new float[inputSize,outputSize];
-            PrevCorr = new float[inputSize,outputSize];
-            Input = new float[inputSize];
-            Output = new float[outputSize];
-            Error = new float[outputSize];
-            if(rand!=null){
-                ResetWeights(rand);
-            } else {
-                ResetWeights();
-            }
-        }
-
-        /// <summary>
-        /// Функция для вычисления ответа нейрона в соответствии со входным значением
-        /// </summary>
-        /// <param name="x">вход функции</param>
-        /// <returns></returns>
-        protected virtual float AcivationFunct(float x){
-            return (float)(1/(1+Math.Exp(-x)));
-        }
-
-        /// <summary>
-        /// Вычисление производной функции активации с заданным значением
-        /// </summary>
-        /// <param name="x">значение функции</param>
-        /// <returns></returns>
-        protected virtual float AcivationDeriv(float x){
-            return x*(1-x);
-        }
-
+        protected ActivationFunct Funct;
+        
         /// <summary>
         /// Метод, возвращающий число входов слоя
         /// </summary>
@@ -84,13 +76,26 @@ namespace DeepLearning
         public int GetOutputSize(){
             return Weights.GetLength(1);
         }
-
+        
         /// <summary>
         /// Возвращает массив выхода
         /// </summary>
         /// <returns></returns>
         public float[] GetOutput(){
             return Output;
+        }
+        
+        /// <summary>
+        /// Метод, возвращающий буффер выхода нейрона, прогнанный через функцию активации
+        /// </summary>
+        /// <returns></returns>
+        public float[] GetActivOutput(){
+            float[] Result = new float[GetOutputSize()];
+            for (int i = 0; i < GetOutputSize(); i++)
+            {
+                Result[i] = Funct.ActivationVal(Output[i]);
+            }
+            return Result;
         }
         
         /// <summary>
@@ -122,33 +127,20 @@ namespace DeepLearning
         }
 
         /// <summary>
-        /// Метод, вычисляющий выход одного нейрона
+        /// Метод, выдающий вывод одного нейрона до прогона его через функцию активации
         /// </summary>
-        /// <param name="id">индекс нейрона в матрице весов</param>
+        /// <param name="id"></param>
         /// <returns></returns>
-        protected float SingleNeuronOutput(int id){            
+        protected float SingleNeuronWeightedInput(int id){
                 float value = 0;
                 //для каждого выходного нейрона собираем сумму его входов, помноженных на вес слоя
                 for (int inp = 0; inp < GetInputSize(); inp++)
                 {
                     value += Input[inp]*Weights[inp,id];
                 }
-                return AcivationFunct(value);
+                return value;
         }
-
-        /// <summary>
-        /// Метод, генерирующий выходной массив значений слоя
-        /// </summary>
-        public void GenerateOutput(){
-            //обновляем массив выходов слоя
-            Output = new float[GetOutputSize()];
-            //проходим по всем выходным нейронам
-            for (int outp = 0; outp < GetOutputSize(); outp++)
-            {
-                Output[outp] = SingleNeuronOutput(outp);
-            }
-        }
-
+        
         /// <summary>
         /// Метод для задания входных значений нейрона
         /// </summary>
@@ -163,81 +155,19 @@ namespace DeepLearning
         }
         
         /// <summary>
-        /// Метод для корректировки веса одного нейрона на основе вычисленной ошибки
+        /// Метод, генерирующий выходной массив значений слоя
         /// </summary>
-        /// <param name="id">индекс нейрона</param>
-        /// <param name="speed">коэффициент изменения весов</param>
-        /// <param name="InCoeff">коэффициент инерции изменений</param>
-        protected void AdjustWSingle(int id, float speed, float InCoeff){
-            for (int inp = 0; inp < GetInputSize(); inp++)
+        public void GenerateOutput(){
+            //обновляем массив выходов слоя
+            Output = new float[GetOutputSize()];
+            //проходим по всем выходным нейронам
+            for (int outp = 0; outp < GetOutputSize(); outp++)
             {
-                Weights[inp,id] -= speed*Error[id]*Input[inp];
+                Output[outp] = SingleNeuronWeightedInput(outp);
             }
         }
-
-        /// <summary>
-        /// Метод для корректировки весов всех нейронов слоя. для корректировки должна быть задана ошибка
-        /// </summary>
-        /// <param name="speed">коэффициент изменения весов</param>
-        /// <param name="InCoeff">коэффициент инерции изменений</param>
-        public void AdjustW(float speed, float InCoeff){
-            for (int i = 0; i < GetOutputSize(); i++)
-            {
-                AdjustWSingle(i,speed,InCoeff);
-            }
-        }
-
-        /// <summary>
-        /// Метод для вычисления взвешанной суммы ошибок на следующем за этим нейроном слоем
-        /// </summary>
-        /// <param name="id">индекс нейрона</param>
-        /// <param name="NextWeights">веса следующего слоя</param>
-        /// <param name="NextErrors">Ошибки следующего слоя</param>
-        /// <returns></returns>
-        protected float WeightedErrorOfNeuron(int id, NNLayer Next){
-            if(Next.GetOutputSize() != Next.Error.Length)
-                throw new Exception("Output size of passed weight matrix does not match with errors size. Weight Matr = "+Next.GetOutputSize()+", Errors = "+ Next.Error.Length);
-            float Result = 0;
-            for (int i = 0; i < Next.GetOutputSize(); i++)
-            {
-                Result += Next.Weights[id,i]*Next.Error[i];
-            }
-            return Result;
-        }
-
-        /// <summary>
-        /// Метод для вычисления значения ошибки одного нейрона
-        /// </summary>
-        /// <param name="ErrorVal">Либо взвешанные ошибки предыдущих нейронов, либо производная функции вычисления расхождения (если последний слой)</param>
-        /// <param name="id"></param>
-        /// <returns></returns>
-        protected void CalculateErrorSingle(float ErrorVal, int id){
-            Error[id] = ErrorVal*AcivationDeriv(Output[id]);
-        }
-
-        /// <summary>
-        /// Метод для заполнения всего массива ошибок слоя
-        /// </summary>
-        /// <param name="NextErrors"></param>
-        public void FillErrors(NNLayer Next){
-            for (int i = 0; i < GetOutputSize(); i++)
-            {
-                CalculateErrorSingle(WeightedErrorOfNeuron(i,Next),i);
-            }
-        }
-
-        /// <summary>
-        /// Метод для заполнения массива ошибок слоя. Перегрузка для заданных изначально значений массива
-        /// </summary>
-        public void FillErrors(float[]ErrorVals){   
-            if(GetOutputSize() != ErrorVals.Length)
-                throw new Exception("ErrorVal size of does not match with output size. Oputput size = "+GetOutputSize()+", Error size = "+ErrorVals.Length);
-                     
-            for (int i = 0; i < GetOutputSize(); i++)
-            {
-                CalculateErrorSingle(ErrorVals[i],i);
-            }
-        }
+        
+        public abstract void AdjustWeights();
 
         /// <summary>
         /// Метод для строкового представления весов слоя
@@ -266,14 +196,145 @@ namespace DeepLearning
         }
     
         public string OutputToString(){
+            float[] ActivOutput = GetActivOutput();
             string result = "";
                 for (int j = 0; j < GetOutputSize(); j++)
                 {
-                    result += Output[j]+" ";
+                    result += ActivOutput[j]+" ";
                 }
             return result;
         }
     
+        public virtual string StateToString(){
+            string result = "";
+            result += "Weights = "+WeightsToString();
+            result += "Input = "+InputToString();
+            result += "Output = "+OutputToString();
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// базовый класс, представляющий один слой нейросети
+    /// </summary>
+    public class BackPropLayer : NNLayer{
+
+        /// <summary>
+        /// массив, хранящий предыдущие исправления весов
+        /// </summary>
+        protected float[,] PrevCorr;
+
+        /// <summary>
+        /// Буффер ошибок нейронного слоя
+        /// </summary>
+        protected float[] Error;
+
+        protected float speed = 1;
+
+        /// <summary>
+        /// Инициализация слоя
+        /// </summary>
+        /// <param name="inputSize">Количество входов</param>
+        /// <param name="outputSize">Количество выходов</param>
+        public BackPropLayer(int inputSize, int outputSize, ActivationFunct funct, Random rand = null){
+            Funct = funct;
+            Weights = new float[inputSize,outputSize];
+            PrevCorr = new float[inputSize,outputSize];
+            Input = new float[inputSize];
+            Output = new float[outputSize];
+            Error = new float[outputSize];
+            if(rand!=null){
+                ResetWeights(rand);
+            } else {
+                ResetWeights();
+            }
+        }
+
+        /// <summary>
+        /// Метод для задания скорости обучения слоя
+        /// </summary>
+        /// <param name="val">новая скорость обучения</param>
+        public void SetSpeed(float val){
+            speed = val;
+        }
+
+        /// <summary>
+        /// Метод для корректировки веса одного нейрона на основе вычисленной ошибки
+        /// </summary>
+        /// <param name="id">индекс нейрона</param>
+        /// <param name="speed">коэффициент изменения весов</param>
+        /// <param name="InCoeff">коэффициент инерции изменений</param>
+        protected void AdjustWSingle(int id, float speed){
+            for (int inp = 0; inp < GetInputSize(); inp++)
+            {
+                Weights[inp,id] -= speed*Error[id]*Input[inp];
+            }
+        }
+
+        /// <summary>
+        /// Метод для корректировки весов всех нейронов слоя. для корректировки должна быть задана ошибка
+        /// </summary>
+        /// <param name="speed">коэффициент изменения весов</param>
+        /// <param name="InCoeff">коэффициент инерции изменений</param>
+        public override void AdjustWeights(){
+            for (int i = 0; i < GetOutputSize(); i++)
+            {
+                AdjustWSingle(i,speed);
+            }
+        }
+
+        /// <summary>
+        /// Метод для вычисления взвешанной суммы ошибок на следующем за этим нейроном слоем
+        /// </summary>
+        /// <param name="id">индекс нейрона</param>
+        /// <param name="NextWeights">веса следующего слоя</param>
+        /// <param name="NextErrors">Ошибки следующего слоя</param>
+        /// <returns></returns>
+        protected float WeightedErrorOfNeuron(int id, BackPropLayer Next){
+            if(Next.GetOutputSize() != Next.Error.Length)
+                throw new Exception("Output size of passed weight matrix does not match with errors size. Weight Matr = "+Next.GetOutputSize()+", Errors = "+ Next.Error.Length);
+            float Result = 0;
+            for (int i = 0; i < Next.GetOutputSize(); i++)
+            {
+                Result += Next.Weights[id,i]*Next.Error[i];
+            }
+            return Result;
+        }
+
+        /// <summary>
+        /// Метод для вычисления значения ошибки одного нейрона
+        /// </summary>
+        /// <param name="ErrorVal">Либо взвешанные ошибки предыдущих нейронов, либо производная функции вычисления расхождения (если последний слой)</param>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        protected void MultiplyByDeriv(float ErrorVal, int id){
+            Error[id] = ErrorVal*Funct.ActivationDeriv(Output[id]);
+        }
+
+        /// <summary>
+        /// Метод для заполнения всего массива ошибок слоя
+        /// </summary>
+        /// <param name="NextErrors"></param>
+        public void FillErrors(BackPropLayer Next){
+            for (int i = 0; i < GetOutputSize(); i++)
+            {
+                MultiplyByDeriv(WeightedErrorOfNeuron(i,Next),i);
+            }
+        }
+
+        /// <summary>
+        /// Метод для заполнения массива ошибок слоя. Перегрузка для заданных изначально значений массива
+        /// </summary>
+        public void FillErrors(float[]ErrorVals){   
+            if(GetOutputSize() != ErrorVals.Length)
+                throw new Exception("ErrorVal size of does not match with output size. Oputput size = "+GetOutputSize()+", Error size = "+ErrorVals.Length);
+                     
+            for (int i = 0; i < GetOutputSize(); i++)
+            {
+                MultiplyByDeriv(ErrorVals[i],i);
+            }
+        }
+
         public string ErrorToString(){
             string result = "";
                 for (int j = 0; j < GetOutputSize(); j++)
@@ -283,35 +344,113 @@ namespace DeepLearning
             return result;
         }
     
-        public string StateToString(){
-            string result = "";
-            result += "Weights = "+WeightsToString();
-            result += "Input = "+InputToString();
-            result += "Output = "+OutputToString();
+        public override string StateToString(){
+            string result = base.StateToString();
             result += "Error = "+ErrorToString();
             return result;
         }
     }
 
     /// <summary>
-    /// Класс, отображающий целую нейросеть
+    /// Класс простой нейросети с обратным распространением ошибки
     /// </summary>
-    public class NeuralNetwork{
+    public class BackPropNetwork{
 
         /// <summary>
         /// Массив 
         /// </summary>
-        public NNLayer[] Layers;
+        protected List<BackPropLayer> Layers = new List<BackPropLayer>();
 
         /// <summary>
-        /// Вычисление входа по каждой "лапке" логистического нейрона
+        /// Конструктор класса, задающий начальные данные первого слоя
         /// </summary>
-        /// <param name="w">вес входа</param>
-        /// <param name="x">передаваемое значение</param>
-        /// <param name="b">смещение</param>
+        /// <param name="Inputs"></param>
+        /// <param name="Outputs"></param>
+        public BackPropNetwork(int Inputs, int Outputs, ActivationFunct funct, Random Rand = null){
+            Layers.Add(new BackPropLayer(Inputs,Outputs,funct,Rand));
+        }
+
+        /// <summary>
+        /// Добавление нового слоя поверх последнего
+        /// </summary>
+        /// <param name="Outputs">количество выходов последнего слоя</param>
+        /// <param name="funct">функция активации</param>
+        /// <param name="Rand">рандом, если есть возможность</param>
+        public void AddLayer(int Outputs, ActivationFunct funct, Random Rand = null){
+            Layers.Add(new BackPropLayer(Layers[Layers.Count-1].GetOutputSize(),Outputs,funct,Rand));
+        }
+
+        /// <summary>
+        /// Удаление верхнего слоя нейросети
+        /// </summary>
+        public void RemoveLayer(){
+            Layers.RemoveAt(Layers.Count-1);
+        }
+
+        /// <summary>
+        /// Метод, выдающий строковое предсавление структуры и состояния нейросети
+        /// </summary>
         /// <returns></returns>
-        public virtual float SingleLogInput(float w, float x, float b = 0){
-            return w*x-b;
+        public string StructToString(){
+            string result = "";
+            foreach (BackPropLayer item in Layers)
+            {
+                result += item.StateToString();
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Метод, задающий вход первого слоя нейросети
+        /// </summary>
+        /// <param name="Array"></param>
+        public void SetInput(float [] Array){
+            Layers[0].SetInput(Array);
+        }
+
+        public void MoveForward(){
+            for (int i = 0; i < Layers.Count; i++)
+            {
+                Layers[i].GenerateOutput();
+                if(i < Layers.Count-1){
+                    Layers[i+1].SetInput(Layers[i].GetActivOutput());
+                }
+            }
+        }
+
+        public BackPropLayer GetLastLayer(){
+            return Layers[Layers.Count-1];
+        }
+
+        public BackPropLayer GetFirstLayer(){
+            return Layers[0];
+        }
+
+        public void CalcError(float[] Expected){
+            BackPropLayer LastLayer = GetLastLayer();
+            float[] Errors = LastLayer.GetActivOutput();
+            for (int i = 0; i < Errors.Length; i++)
+            {
+                Errors[i] = Errors[i]-Expected[i];
+            }
+            LastLayer.FillErrors(Errors);
+        }
+
+        /// <summary>
+        /// Метод, продвигающий ошибку назад по сети
+        /// </summary>
+        public void BackProp(){
+            for (int i = Layers.Count-1; i > 0; i--)
+            {
+                Layers[i-1].FillErrors(Layers[i]);
+            }
+        }
+
+        public void AdjustWeights(){
+            for (int i = 0; i < Layers.Count; i++)
+            {
+                Layers[i].AdjustWeights();
+            }
         }
     }
 }
