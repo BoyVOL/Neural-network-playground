@@ -408,6 +408,18 @@ namespace DeepLearning
             Layers[0].SetInput(Array);
         }
 
+        /// <summary>
+        /// Метод для вывода выходного вектора нейросети
+        /// </summary>
+        /// <returns></returns>
+        public float[] GetOutput(){
+            float[] Result = GetLastLayer().GetActivOutput();
+            return Result;
+        }
+
+        /// <summary>
+        /// Продвижение заданного входа сети вперёд с генерацией вывода
+        /// </summary>
         public void MoveForward(){
             for (int i = 0; i < Layers.Count; i++)
             {
@@ -418,14 +430,26 @@ namespace DeepLearning
             }
         }
 
+        /// <summary>
+        /// Метод, возвращающий выходной слой нейросети
+        /// </summary>
+        /// <returns></returns>
         public BackPropLayer GetLastLayer(){
             return Layers[Layers.Count-1];
         }
 
+        /// <summary>
+        /// Метод, возвращающий входной слой нейросети
+        /// </summary>
+        /// <returns></returns>
         public BackPropLayer GetFirstLayer(){
             return Layers[0];
         }
 
+        /// <summary>
+        /// Вычисление ошибки последнего слоя нейросети
+        /// </summary>
+        /// <param name="Expected"></param>
         public void CalcError(float[] Expected){
             BackPropLayer LastLayer = GetLastLayer();
             float[] Errors = LastLayer.GetActivOutput();
@@ -446,11 +470,21 @@ namespace DeepLearning
             }
         }
 
+        /// <summary>
+        /// Метод, корректирующий веса нейронных слоёв
+        /// </summary>
         public void AdjustWeights(){
             for (int i = 0; i < Layers.Count; i++)
             {
                 Layers[i].AdjustWeights();
             }
         }
+    }
+
+    /// <summary>
+    /// Класс, отвечающий за тренировку нейронной сети
+    /// </summary>
+    public class Trainer{
+
     }
 }
